@@ -56,7 +56,24 @@ app.on('open-url', (e, url) => {
   if (app.isReady()) deliverAuth()
 })
 
+// Clés admin (fichier local, lisible par l'utilisateur seul) : ajoutées uniquement aux appels de l'API
+// d'admin de chaque plateforme, dans son propre onglet. Pas de connexion Google à faire.
+const fs = require('fs')
+const ADMIN_API = {
+  event: 'https://bar-ops-v2.vercel.app/api/admin*',
+  venue: 'https://bar-ops-venue.vercel.app/api/admin*',
+  helm: 'https://chlmqnrvnrgeaihryreb.supabase.co/functions/v1/admin*',
+}
+function adminKeys() {
+  try { return JSON.parse(fs.readFileSync(path.join(app.getPath('appData'), 'Ops HQ', 'admin-keys.json'), 'utf8')) } catch (_) { return {} }
+}
+
 app.whenReady().then(() => {
+  const keys = adminKeys()
+  for (const [id, url] of Object.entries(ADMIN_API)) {
+    if (!keys[id]) continue
+    session.fromPartition('persist:' + id).webRequest.onBeforeSendHeaders({ urls: [url] }, (d, cb) => cb({ requestHeaders: { ...d.requestHeaders, 'x-admin-key': keys[id] } }))
+  }
   for (const id of ['event', 'venue', 'helm']) session.fromPartition('persist:' + id).setPermissionRequestHandler((_wc, _p, cb) => cb(false))
   const send = ch => () => win && win.webContents.send(ch)
   Menu.setApplicationMenu(Menu.buildFromTemplate([
