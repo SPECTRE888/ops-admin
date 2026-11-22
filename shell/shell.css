@@ -42,8 +42,8 @@ webview.on,.hqv.on{visibility:visible}
 .plat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
 .plat header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .plat header b{font-size:14px;font-weight:500;color:var(--gold);letter-spacing:.04em}
-.plat header button{border:1px solid var(--border);background:none;color:var(--text2);border-radius:6px;padding:4px 10px;font:inherit;font-size:11px;cursor:pointer}
-.plat header button:hover{border-color:var(--gold-border);color:var(--gold)}
+button[data-go]:not(.tab){border:1px solid var(--border);background:none;color:var(--text2);border-radius:6px;padding:4px 10px;font:inherit;font-size:11px;cursor:pointer}
+button[data-go]:not(.tab):hover{border-color:var(--gold-border);color:var(--gold)}
 .plat dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:12.5px}
 .plat dt{color:var(--text2)}.plat dd{text-align:right}
 .err{color:var(--red);font-size:12px}
