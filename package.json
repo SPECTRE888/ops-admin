@@ -12,8 +12,26 @@
   "build": {
     "appId": "fr.ops-suite.hq",
     "productName": "Ops HQ",
-    "files": ["main.js", "shell/**/*"],
-    "mac": { "icon": "build/icon.icns", "category": "public.app-category.business", "target": ["dir"], "identity": null }
+    "files": [
+      "main.js",
+      "shell/**/*"
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.business",
+      "target": [
+        "dir"
+      ],
+      "identity": null
+    },
+    "protocols": [
+      {
+        "name": "Ops HQ",
+        "schemes": [
+          "opshq"
+        ]
+      }
+    ]
   },
   "devDependencies": {
     "electron": "^39.8.10",

@@ -59,5 +59,7 @@ const act = {
   home: () => { const p = PLATFORMS.find(x => x.id === current); if (p.url && wv()) wv().loadURL(p.url) },
 }
 $('reload').onclick = act.reload; $('back').onclick = act.back; $('home').onclick = act.home
-window.hq.on('go', show); window.hq.on('reload', act.reload); window.hq.on('home', act.home); window.hq.on('back', act.back)
+window.hq.on('go', show)
+// Retour de la connexion Google faite dans le navigateur du Mac (lien opshq://helm#jetons)
+window.hq.on('helm-auth', hash => { show('helm'); views.helm.loadURL(PLATFORMS.find(p => p.id === 'helm').url + '?hq=1' + hash) }); window.hq.on('reload', act.reload); window.hq.on('home', act.home); window.hq.on('back', act.back)
 show(current)

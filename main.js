@@ -19,6 +19,7 @@ function create() {
     webPreferences: { preload: path.join(__dirname, 'shell', 'preload.js'), contextIsolation: true, nodeIntegration: false, webviewTag: true, sandbox: true },
   })
   win.loadFile(path.join(__dirname, 'shell', 'index.html'))
+  win.webContents.on('did-finish-load', () => setTimeout(deliverAuth, 300))
   win.webContents.on('will-navigate', e => e.preventDefault())
   win.webContents.setWindowOpenHandler(({ url }) => { openOut(url); return { action: 'deny' } })
 }
@@ -29,7 +30,10 @@ app.on('web-contents-created', (_e, wc) => {
   // Liens target=_blank (Stripe, Vercel, Supabase…) : navigateur du Mac
   wc.setWindowOpenHandler(({ url }) => { openOut(url); return { action: 'deny' } })
   // Navigation hors des plateformes et de la connexion Google : navigateur du Mac
-  wc.on('will-navigate', (e, url) => { if (!inApp(url)) { e.preventDefault(); openOut(url) } })
+  // Google refuse la connexion dans une webview Electron (« navigateur non sécurisé ») : pour Helm,
+  // la connexion se fait dans le navigateur du Mac, puis la page admin renvoie ici via opshq://helm
+  wc.on('will-navigate', (e, url) => { if (/^https:\/\/chlmqnrvnrgeaihryreb\.supabase\.co\/auth\/v1\/authorize/.test(url)) { e.preventDefault(); openOut(url); return }
+    if (!inApp(url)) { e.preventDefault(); openOut(url) } })
 })
 // Les webviews ne peuvent charger que des adresses https autorisées, sans Node
 app.on('web-contents-created', (_e, wc) => {
@@ -38,6 +42,18 @@ app.on('web-contents-created', (_e, wc) => {
     prefs.nodeIntegration = false; prefs.contextIsolation = true; prefs.sandbox = true
     if (!inApp(params.src) && !params.src.startsWith('data:')) e.preventDefault()
   })
+})
+
+// Lien opshq://helm#access_token=… : jetons Supabase de la connexion Helm faite dans le navigateur
+app.setAsDefaultProtocolClient('opshq')
+let pendingAuth = null
+const deliverAuth = () => { if (pendingAuth && win && !win.webContents.isLoading()) { win.webContents.send('helm-auth', pendingAuth); pendingAuth = null; win.show(); win.focus() } }
+app.on('open-url', (e, url) => {
+  e.preventDefault()
+  const m = /^opshq:\/\/helm\/?(#access_token=[A-Za-z0-9_\-.=&%/+]+)$/.exec(url)
+  if (!m) return
+  pendingAuth = m[1]
+  if (app.isReady()) deliverAuth()
 })
 
 app.whenReady().then(() => {
