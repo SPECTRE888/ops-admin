@@ -1,0 +1,22 @@
+{
+  "name": "ops-hq",
+  "productName": "Ops HQ",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Super admin des plateformes Ops Suite (Bar Ops Event, Bar Ops Venue, Helm Ops), usage personnel de Jérôme",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac dir"
+  },
+  "build": {
+    "appId": "fr.ops-suite.hq",
+    "productName": "Ops HQ",
+    "files": ["main.js", "shell/**/*"],
+    "mac": { "icon": "build/icon.icns", "category": "public.app-category.business", "target": ["dir"], "identity": null }
+  },
+  "devDependencies": {
+    "electron": "^39.8.10",
+    "electron-builder": "^26.15.0"
+  }
+}
