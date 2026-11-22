@@ -7,7 +7,7 @@ const path = require('path')
 // Google refuse la connexion dans un navigateur intégré qui s'annonce comme Electron :
 // on présente l'agent utilisateur d'un Chrome standard.
 const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'
-const ALLOWED = [/^https:\/\/bar-ops-v2\.vercel\.app\//, /^https:\/\/bar-ops-venue\.vercel\.app\//, /^https:\/\/[a-z0-9]+\.supabase\.co\//, /^https:\/\/accounts\.google\.com\//, /^https:\/\/[a-z.]*google\.com\//, /^https:\/\/[a-z.]*gstatic\.com\//]
+const ALLOWED = [/^https:\/\/bar-ops-v2\.vercel\.app\//, /^https:\/\/bar-ops-venue\.vercel\.app\//, /^https:\/\/spectre888\.github\.io\/Helm-Ops\//, /^https:\/\/[a-z0-9]+\.supabase\.co\//, /^https:\/\/accounts\.google\.com\//, /^https:\/\/[a-z.]*google\.com\//, /^https:\/\/[a-z.]*gstatic\.com\//]
 const inApp = u => ALLOWED.some(r => r.test(u))
 const openOut = u => { if (/^(https?|mailto|tel):/.test(u)) shell.openExternal(u) }
 

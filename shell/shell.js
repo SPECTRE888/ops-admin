@@ -2,8 +2,7 @@
 const PLATFORMS = [
   { id: 'event', name: 'Bar Ops Event', short: 'EV', label: 'Event', url: 'https://bar-ops-v2.vercel.app/admin.html' },
   { id: 'venue', name: 'Bar Ops Venue', short: 'VE', label: 'Venue', url: 'https://bar-ops-venue.vercel.app/admin.html' },
-  { id: 'helm', name: 'Helm Ops', short: 'HE', label: 'Helm', url: null,
-    placeholder: 'Le super admin de Helm Ops n\'existe pas encore : Helm Ops a sa propre base et pas de serveur Vercel. Dès qu\'il sera en ligne, il suffira d\'ajouter son adresse dans shell/shell.js.' },
+  { id: 'helm', name: 'Helm Ops', short: 'HE', label: 'Helm', url: 'https://spectre888.github.io/Helm-Ops/admin/' },
 ]
 const $ = id => document.getElementById(id)
 const views = {}
@@ -28,7 +27,7 @@ for (const p of PLATFORMS) {
     v.addEventListener('did-stop-loading', () => { dot('ok'); if (p.id === current) bar() })
     v.addEventListener('did-fail-load', e => { if (e.errorCode !== -3 && e.isMainFrame) dot('bad') })
     // Après la connexion Google, la plateforme renvoie vers son app : on revient au super admin
-    v.addEventListener('did-navigate', e => { if (/\/app\.html/.test(e.url)) v.loadURL(p.url); else if (p.id === current) bar() })
+    v.addEventListener('did-navigate', e => { if (/\/app\.html/.test(e.url)) v.loadURL(p.url); else if (p.id === 'helm' && e.url.startsWith('https://spectre888.github.io/Helm-Ops/') && !e.url.startsWith(p.url)) v.loadURL(p.url + (new URL(e.url).hash || '')); else if (p.id === current) bar() })
     v.addEventListener('did-navigate-in-page', () => p.id === current && bar())
   } else {
     v = document.createElement('div')
