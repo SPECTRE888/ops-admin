@@ -1,7 +1,7 @@
 // Ops HQ — coque Mac qui regroupe les super admins des plateformes Ops Suite.
 // Chaque plateforme tourne dans sa propre <webview>, avec une session persistante séparée
 // (partition persist:<id>) : la connexion à Event ne se mélange pas avec Venue ou Helm.
-const { app, BrowserWindow, shell, Menu, session } = require('electron')
+const { app, BrowserWindow, shell, Menu, session, ipcMain } = require('electron')
 const path = require('path')
 
 // Google refuse la connexion dans un navigateur intégré qui s'annonce comme Electron :
@@ -15,7 +15,7 @@ let win
 function create() {
   win = new BrowserWindow({
     width: 1480, height: 960, minWidth: 900, minHeight: 600,
-    title: 'Ops HQ', backgroundColor: '#080808', titleBarStyle: 'hiddenInset',
+    title: 'Ops HQ', backgroundColor: '#080808', titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 16 },
     webPreferences: { preload: path.join(__dirname, 'shell', 'preload.js'), contextIsolation: true, nodeIntegration: false, webviewTag: true, sandbox: true },
   })
   win.loadFile(path.join(__dirname, 'shell', 'index.html'))
@@ -68,6 +68,24 @@ function adminKeys() {
   try { return JSON.parse(fs.readFileSync(path.join(app.getPath('appData'), 'Ops HQ', 'admin-keys.json'), 'utf8')) } catch (_) { return {} }
 }
 
+// Vues réunies d'Ops HQ (vue d'ensemble, santé, rendez-vous) : le process principal interroge l'API
+// d'admin de chaque plateforme avec sa clé. Seules des vues en lecture sont permises ici.
+const API_BASE = { event: 'https://bar-ops-v2.vercel.app/api/admin', venue: 'https://bar-ops-venue.vercel.app/api/admin', helm: 'https://chlmqnrvnrgeaihryreb.supabase.co/functions/v1/admin' }
+const HQ_VIEWS = { overview: ['event', 'venue', 'helm'], health: ['event', 'venue', 'helm'], demos: ['venue'] }
+ipcMain.handle('hq-data', async (_e, view) => {
+  if (!HQ_VIEWS[view]) return {}
+  const keys = adminKeys(), out = {}
+  await Promise.all(HQ_VIEWS[view].map(async id => {
+    if (!keys[id]) return (out[id] = { error: 'Clé absente' })
+    try {
+      const r = await fetch(API_BASE[id] + '?view=' + view, { headers: { 'x-admin-key': keys[id] }, signal: AbortSignal.timeout(20000) })
+      const j = await r.json().catch(() => ({}))
+      out[id] = r.ok ? j : { error: j.error || 'HTTP ' + r.status }
+    } catch (e) { out[id] = { error: e.message } }
+  }))
+  return out
+})
+
 app.whenReady().then(() => {
   const keys = adminKeys()
   for (const [id, url] of Object.entries(ADMIN_API)) {
@@ -80,9 +98,13 @@ app.whenReady().then(() => {
     { role: 'appMenu' },
     { role: 'editMenu' },
     { label: 'Plateformes', submenu: [
-      { label: 'Bar Ops Event', accelerator: 'Cmd+1', click: () => win.webContents.send('go', 'event') },
-      { label: 'Bar Ops Venue', accelerator: 'Cmd+2', click: () => win.webContents.send('go', 'venue') },
-      { label: 'Helm Ops', accelerator: 'Cmd+3', click: () => win.webContents.send('go', 'helm') },
+      { label: "Vue d'ensemble", accelerator: 'Cmd+1', click: () => win.webContents.send('go', 'overview') },
+      { label: 'Santé', accelerator: 'Cmd+2', click: () => win.webContents.send('go', 'health') },
+      { label: 'Rendez-vous', accelerator: 'Cmd+3', click: () => win.webContents.send('go', 'demos') },
+      { type: 'separator' },
+      { label: 'Bar Ops Event', accelerator: 'Cmd+4', click: () => win.webContents.send('go', 'event') },
+      { label: 'Bar Ops Venue', accelerator: 'Cmd+5', click: () => win.webContents.send('go', 'venue') },
+      { label: 'Helm Ops', accelerator: 'Cmd+6', click: () => win.webContents.send('go', 'helm') },
       { type: 'separator' },
       { label: 'Actualiser', accelerator: 'Cmd+R', click: send('reload') },
       { label: 'Revenir au super admin', accelerator: 'Cmd+Shift+H', click: send('home') },

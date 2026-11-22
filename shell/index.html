@@ -7,20 +7,17 @@
 <link rel="stylesheet" href="shell.css">
 </head>
 <body>
-<aside class="side">
-  <div class="drag"></div>
-  <div class="brand">OPS<span>HQ</span></div>
+<header class="top">
+  <div class="brand">OPS <span>HQ</span></div>
   <nav id="nav"></nav>
-  <div class="foot">
+  <div class="tools">
     <button id="back" title="Précédent (⌘[)"><svg viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></svg></button>
     <button id="home" title="Revenir au super admin (⇧⌘H)"><svg viewBox="0 0 16 16"><path d="M2.5 7.5L8 3l5.5 4.5M4 6.5V13h8V6.5"/></svg></button>
     <button id="reload" title="Actualiser (⌘R)"><svg viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 11-1.6-3.9M13.5 2v3h-3"/></svg></button>
   </div>
-</aside>
-<main id="main">
-  <div class="bar"><span id="title"></span><span id="url"></span></div>
-  <div id="views"></div>
-</main>
+</header>
+<div class="sub"><span id="title"></span><span id="url"></span></div>
+<div id="views"></div>
 <script src="shell.js"></script>
 </body>
 </html>
