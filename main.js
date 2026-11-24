@@ -90,7 +90,7 @@ ipcMain.handle('hq-data', async (_e, view) => {
 const shown = new Set()
 const notify = (title, body, go) => {
   if (!Notification.isSupported()) return
-  const n = new Notification({ title: title.slice(0, 200), body: body.slice(0, 500) })
+  const n = new Notification({ title: title.slice(0, 200), body: body.slice(0, 500), sound: go === 'demos' ? 'Glass' : 'Sosumi' })
   shown.add(n)
   n.on('click', () => { if (win) { win.show(); win.focus(); if (['health', 'demos'].includes(go)) win.webContents.send('go', go) } })
   n.on('close', () => shown.delete(n))
