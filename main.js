@@ -89,6 +89,8 @@ ipcMain.handle('hq-data', async (_e, view) => {
 // Alertes Mac (santé, démos) envoyées par la page ; clic : fenêtre au premier plan sur le bon onglet
 const shown = new Set()
 const notify = (title, body, go) => {
+  // Journal des alertes : ~/Library/Logs/Ops HQ/alertes.log
+  try { const d = app.getPath('logs'); fs.mkdirSync(d, { recursive: true }); fs.appendFileSync(path.join(d, 'alertes.log'), new Date().toISOString() + ' ' + title + ' | ' + body + '\n') } catch (_) {}
   if (!Notification.isSupported()) return
   const n = new Notification({ title: title.slice(0, 200), body: body.slice(0, 500), silent: true })
   shown.add(n)
@@ -98,6 +100,8 @@ const notify = (title, body, go) => {
   // Son joué par l'app elle-même : ne dépend pas du réglage « Émettre un son » de macOS
   require('child_process').execFile('/usr/bin/afplay', ['/System/Library/Sounds/' + (go === 'demos' ? 'Glass' : 'Sosumi') + '.aiff'], () => {})
 }
+// Tests du menu : macOS n'affiche pas de bannière pour l'app au premier plan, on la masque d'abord comme en vrai
+const bg = fn => { app.hide(); setTimeout(fn, 1500) }
 ipcMain.on('hq-notify', (_e, title, body, go) => notify(title, body, go))
 
 app.whenReady().then(() => {
@@ -126,9 +130,9 @@ app.whenReady().then(() => {
       { label: 'Revenir au super admin', accelerator: 'Cmd+Shift+H', click: send('home') },
       { label: 'Précédent', accelerator: 'Cmd+[', click: send('back') },
       { type: 'separator' },
-      { label: 'Envoyer une alerte de test', click: () => notify('⚠️ Alerte de test', 'Rien de cassé : clic pour ouvrir Santé', 'health') },
-      { label: 'Simuler une démo', click: () => win.webContents.send('fake-demo') },
-      { label: 'Simuler un problème de santé', click: () => win.webContents.send('fake-health') },
+      { label: 'Envoyer une alerte de test', click: () => bg(() => notify('⚠️ Alerte de test', 'Rien de cassé : clic pour ouvrir Santé', 'health')) },
+      { label: 'Simuler une démo', click: () => bg(() => win.webContents.send('fake-demo')) },
+      { label: 'Simuler un problème de santé', click: () => bg(() => win.webContents.send('fake-health')) },
     ] },
     { role: 'windowMenu' },
   ]))
