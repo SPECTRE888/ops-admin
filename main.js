@@ -127,6 +127,7 @@ app.whenReady().then(() => {
       { label: 'Précédent', accelerator: 'Cmd+[', click: send('back') },
       { type: 'separator' },
       { label: 'Envoyer une alerte de test', click: () => notify('⚠️ Alerte de test', 'Rien de cassé : clic pour ouvrir Santé', 'health') },
+      { label: 'Simuler un problème de santé', click: () => win.webContents.send('fake-health') },
     ] },
     { role: 'windowMenu' },
   ]))

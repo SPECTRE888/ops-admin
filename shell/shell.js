@@ -84,6 +84,9 @@ const render = {
   },
   async health(v) {
     const d = await window.hq.data('health')
+    // Menu « Simuler un problème de santé » : faux problème sur Helm → Stripe, sans toucher aux alertes vues
+    const fake = fakeHealth && d.helm?.checks?.[2]
+    if (fake) { fakeHealth = false; Object.assign(d.helm.checks[2], { ok: false, detail: 'FAUX PROBLÈME pour tester, rien de cassé' }) }
     let bad = 0
     const issues = []
     const blocks = PLATFORMS.map(p => {
@@ -99,7 +102,7 @@ const render = {
         <ul class="checks">${(h.checks || []).map(c => line(c.name, c.ok, c.detail)).join('')}${line('Variables', !missing.length, missing.length ? missing.join(', ') : Object.keys(h.env || {}).length + ' présentes')}</ul></div>`
     })
     badge('health', bad, true)
-    alertHealth(issues)
+    if (fake) { let old = null; try { old = localStorage.getItem('hq_alerts'); localStorage.setItem('hq_alerts', '[]') } catch (_) {}; alertHealth(issues); try { localStorage.setItem('hq_alerts', old || '[]') } catch (_) {} } else alertHealth(issues)
     v.innerHTML = `<h2>Santé</h2><p class="lead">${bad ? bad + ' point' + (bad > 1 ? 's' : '') + ' à regarder.' : 'Tout est au vert.'}</p><div class="plats three">${blocks.join('')}</div>`
   },
   async demos(v) {
@@ -153,6 +156,8 @@ setInterval(() => {
     }
   })
 }, 60000)
+let fakeHealth = false
+window.hq.on('fake-health', () => { fakeHealth = true; show('health') })
 async function load(id) {
   const v = views[id]
   if (!v.innerHTML) v.innerHTML = '<p class="loading">Chargement…</p>'
