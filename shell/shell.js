@@ -56,6 +56,7 @@ for (const p of PLATFORMS) {
 const badge = (id, n, bad) => { const el = $('n-' + id); el.hidden = !n; el.textContent = n; el.className = 'n' + (bad ? ' bad' : '') }
 const openBtn = id => `<button data-go="${id}">Ouvrir</button>`
 
+let demoDay = null
 const render = {
   async overview(v) {
     const d = await window.hq.data('overview')
@@ -115,10 +116,23 @@ const render = {
     const past = all.filter(b => !up.includes(b)).reverse()
     badge('demos', up.length)
     alertDemos(all, up, when, CH)
-    const row = b => `<tr><td>${esc(when(b.start_at))}</td><td><b style="font-weight:500">${esc(b.name)}</b>${b.bar ? ' · ' + esc(b.bar) : ''}<br><span class="muted">${esc(b.email)}${b.phone ? ' · ' + esc(b.phone) : ''}</span>${b.message ? `<br><span class="muted">${esc(b.message)}</span>` : ''}</td><td><span class="tag ${b.status === 'cancelled' ? 'bad' : 'gold'}">${b.status === 'cancelled' ? 'Annulé' : esc(CH[b.channel] || b.channel)}</span></td></tr>`
-    v.innerHTML = `<h2>Rendez-vous</h2><p class="lead">Démos réservées sur Bar Ops Venue (heure de Paris). Réglages et fermetures de créneaux : onglet Démos de Venue. <button data-go="venue" style="margin-left:8px" class="tab">Ouvrir Venue</button></p>
-      <h3>À venir (${up.length})</h3>${up.length ? `<table><tr><th>Quand</th><th>Qui</th><th>Canal</th></tr>${up.map(row).join('')}</table>` : '<p class="muted">Aucun rendez-vous à venir.</p>'}
-      <h3>Passés et annulés (60 derniers jours)</h3>${past.length ? `<table><tr><th>Quand</th><th>Qui</th><th>Statut</th></tr>${past.map(row).join('')}</table>` : '<p class="muted">Aucun.</p>'}`
+    // Même écran que l'onglet Démos du super admin Venue, en lecture : les actions se font dans Venue
+    const WD = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'], days = d.days || []
+    if (!demoDay || !days.some(x => x.date === demoDay)) demoDay = days[0]?.date
+    const day = days.find(x => x.date === demoDay) || { slots: [] }
+    const ctitle = (t, extra = '') => `<div class="ctitle">${t}<span class="ctitle-rule"></span>${extra}</div>`
+    const bk = b => `<div class="bk"><div class="when">${esc(when(b.start_at))}</div>
+      <div class="who"><strong>${esc(b.name)}</strong>${b.bar ? ' · ' + esc(b.bar) : ''} <span class="tag plain ${b.status === 'cancelled' ? 'bad' : 'gold'}">${b.status === 'cancelled' ? 'Annulé' + (b.cancelled_by === 'client' ? ' par le client' : '') : esc(CH[b.channel] || b.channel)}</span><br>
+      <span class="muted">${esc(b.phone || '')}${b.phone ? ' · ' : ''}${esc(b.email)}</span>${b.message ? `<div class="muted">« ${esc(b.message)} »</div>` : ''}</div></div>`
+    v.innerHTML = `<h2>Rendez-vous</h2><p class="lead">Démos réservées sur Bar Ops Venue, en heure de Paris. Pour annuler une démo, fermer des créneaux ou changer les réglages : <button data-go="venue" style="margin-left:6px">Ouvrir Venue</button></p>
+      <div class="card">${ctitle('Rendez-vous à venir', `<span class="cnt">${up.length}</span>`)}
+        ${up.length ? up.map(bk).join('') : '<div class="empty">Aucune démo prévue</div>'}</div>
+      ${days.length ? `<div class="card">${ctitle('Créneaux', '<span class="cnt">lecture seule</span>')}
+        <div class="days">${days.map(x => { const dd = new Date(x.date + 'T12:00:00Z'), free = x.slots.filter(s => s.state === 'free').length, nb = x.slots.filter(s => s.state === 'booked').length
+          return `<button class="day${x.date === demoDay ? ' on' : ''}${x.open && free + nb ? '' : ' shut'}" data-day="${x.date}">${WD[x.weekday]}<b>${dd.getUTCDate()}</b><small>${!x.open || (!free && !nb && x.slots.some(s => s.state === 'blocked')) ? 'fermé' : nb ? nb + ' rdv' : free ? free + ' libre' + (free > 1 ? 's' : '') : 'complet'}</small></button>` }).join('')}</div>
+        <div class="slots">${day.slots.map(s => `<div class="slot ${s.state}">${s.time}<small>${{ free: 'libre', blocked: 'fermé', booked: 'réservé', past: 'passé', closed: 'jour fermé' }[s.state]}</small></div>`).join('') || '<div class="empty">Aucun créneau ce jour-là</div>'}</div></div>` : ''}
+      ${past.length ? `<div class="card">${ctitle('Passés et annulés', '<span class="cnt">60 derniers jours</span>')}${past.map(bk).join('')}</div>` : ''}`
+    v.querySelectorAll('[data-day]').forEach(x => x.onclick = () => { demoDay = x.dataset.day; load('demos') })
   },
 }
 // Alerte Mac : une notification par nouveau problème, puis une quand tout est revenu au vert
