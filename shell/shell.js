@@ -158,6 +158,14 @@ setInterval(() => {
 }, 60000)
 let fakeHealth = false
 window.hq.on('fake-health', () => { fakeHealth = true; show('health') })
+// Menu « Simuler une démo » : fausse démo dans 10 min → alerte « Nouvelle démo » puis rappel dans la minute
+window.hq.on('fake-demo', () => {
+  const when = s => new Date(s).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  const fake = { id: 'fake-' + Date.now(), name: 'Démo test', bar: 'Le Bar Test', email: 'test@example.com', phone: '06 00 00 00 00', channel: 'visio', status: 'booked', start_at: new Date(Date.now() + 10 * 60000).toISOString() }
+  const list = [...upcoming, fake]
+  try { localStorage.setItem('hq_demos', JSON.stringify(upcoming.map(bid))) } catch (_) {}
+  alertDemos(list, list, when, { visio: 'Visio Meet', whatsapp: 'WhatsApp', phone: 'Téléphone' })
+})
 async function load(id) {
   const v = views[id]
   if (!v.innerHTML) v.innerHTML = '<p class="loading">Chargement…</p>'
