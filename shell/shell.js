@@ -129,6 +129,9 @@ const render = {
       <span class="muted">${esc(b.phone || '')}${b.phone ? ' · ' : ''}${esc(b.email)}</span>${b.message ? `<div class="muted">« ${esc(b.message)} »</div>` : ''}</div>
       ${actions ? `<button class="btn btn-sm btn-danger" data-cancel="${esc(b.id)}">Annuler</button>` : ''}</div>`
     const warn = [d.notify === false && 'Aucune adresse pour vos e-mails (DEMO_NOTIFY_EMAIL ou SUPER_ADMIN_EMAILS)', d.cron === false && 'CRON_SECRET absent : le récap du matin ne partira pas', d.settings && !st.meet_link && 'Pas de lien Meet : la visio n\'est pas proposée aux clients'].filter(Boolean)
+    // Réglages repliés quand tout va bien, avec leur résumé sur une ligne
+    const od = [1, 2, 3, 4, 5, 6, 0].filter(n => (st.open_days || []).includes(n)).map(n => WD[n])
+    const setSum = d.settings ? `${od.length === 7 ? 'Tous les jours' : od.join(' ')} · ${st.start_time}–${st.end_time} · ${st.slot_minutes} min · ${st.horizon_days} jours${st.meet_link ? ' · Meet' : ''}` : ''
     const blocks = {}; days.forEach(x => x.slots.forEach(s => { if (!s.blockId) return; const k = blocks[s.blockId] = blocks[s.blockId] || { id: s.blockId, from: x.date, to: x.date, n: 0 }; k.to = x.date; k.n++ }))
     const big = Object.values(blocks).filter(k => k.n > 1)
     v.innerHTML = `<h2>Rendez-vous</h2><p class="lead">Démos réservées sur Bar Ops Venue, en heure de Paris. Les changements faits ici s'appliquent directement à Venue.</p>
@@ -149,7 +152,7 @@ const render = {
         </div>
         ${big.length ? `<div class="hint">Fermetures en cours : ${big.map(k => `${dshort(k.from)}${k.to !== k.from ? ' → ' + dshort(k.to) : ''} <a href="#" data-unblock="${esc(k.id)}" style="color:var(--gold)">rouvrir</a>`).join(' · ')}</div>` : ''}
       </div>` : ''}
-      ${d.settings ? `<div class="card">${ctitle('Réglages')}
+      ${d.settings ? `<details class="card set"${!st.meet_link || !(st.open_days || []).length ? ' open' : ''}><summary>${ctitle('Réglages', `<span class="cnt">${esc(setSum)}</span><span class="chev"></span>`)}</summary>
         <div class="wd">${[1, 2, 3, 4, 5, 6, 0].map(n => `<label><input type="checkbox" class="owd" value="${n}" ${st.open_days.includes(n) ? 'checked' : ''}>${WD[n]}</label>`).join('')}</div>
         <div class="fgrid">
           <label>Début<input type="time" id="sStart" value="${esc(st.start_time)}" step="900"></label>
@@ -160,7 +163,7 @@ const render = {
         </div>
         <label class="flab">Lien Google Meet fixe<input id="sMeet" value="${esc(st.meet_link || '')}" placeholder="https://meet.google.com/abc-defg-hij"></label>
         <div class="bar" style="margin:14px 0 0"><button class="btn btn-gold" id="sSave">Enregistrer</button></div>
-        <div class="hint">Changer les horaires ne touche pas aux rendez-vous déjà pris.</div></div>` : ''}
+        <div class="hint">Changer les horaires ne touche pas aux rendez-vous déjà pris.</div></details>` : ''}
       ${past.length ? `<div class="card">${ctitle('Passés et annulés', '<span class="cnt">60 derniers jours</span>')}${past.map(b => bk(b, false)).join('')}</div>` : ''}`
 
     const $v = sel => v.querySelector(sel), all$ = sel => v.querySelectorAll(sel)
