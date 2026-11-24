@@ -104,6 +104,19 @@ const notify = (title, body, go) => {
 const bg = fn => { app.hide(); setTimeout(fn, 1500) }
 ipcMain.on('hq-notify', (_e, title, body, go) => notify(title, body, go))
 
+// Actions sur les démos de Venue (annuler, fermer/rouvrir des créneaux, réglages) : seules ces 4 actions passent
+const DEMO_ACTIONS = ['demo_block', 'demo_unblock', 'demo_cancel', 'demo_settings']
+ipcMain.handle('hq-demo', async (_e, body) => {
+  if (!body || typeof body !== 'object' || !DEMO_ACTIONS.includes(body.action)) return { error: 'Action refusée' }
+  const key = adminKeys().venue
+  if (!key) return { error: 'Clé absente' }
+  try {
+    const r = await fetch(API_BASE.venue, { method: 'POST', headers: { 'x-admin-key': key, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) })
+    const j = await r.json().catch(() => ({}))
+    return r.ok ? j : { error: j.error || 'HTTP ' + r.status }
+  } catch (e) { return { error: e.message } }
+})
+
 app.whenReady().then(() => {
   // Ouverture automatique à la connexion au Mac (app installée seulement, pas en développement)
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })

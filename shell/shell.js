@@ -57,6 +57,7 @@ const badge = (id, n, bad) => { const el = $('n-' + id); el.hidden = !n; el.text
 const openBtn = id => `<button data-go="${id}">Ouvrir</button>`
 
 let demoDay = null
+const toast = (msg, bad) => { let t = $('toast'); if (!t) { t = Object.assign(document.createElement('div'), { id: 'toast' }); document.body.appendChild(t) } t.textContent = msg; t.className = 'show' + (bad ? ' bad' : ''); clearTimeout(t._h); t._h = setTimeout(() => t.className = '', 2800) }
 const render = {
   async overview(v) {
     const d = await window.hq.data('overview')
@@ -116,23 +117,79 @@ const render = {
     const past = all.filter(b => !up.includes(b)).reverse()
     badge('demos', up.length)
     alertDemos(all, up, when, CH)
-    // Même écran que l'onglet Démos du super admin Venue, en lecture : les actions se font dans Venue
-    const WD = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'], days = d.days || []
+    // Même écran que l'onglet Démos du super admin Venue, avec ses actions (passées par l'app Mac avec la clé admin)
+    const WD = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'], days = d.days || [], st = d.settings || { open_days: [] }
     if (!demoDay || !days.some(x => x.date === demoDay)) demoDay = days[0]?.date
     const day = days.find(x => x.date === demoDay) || { slots: [] }
+    const dayBlock = day.slots.length && day.slots.every(s => s.state === 'blocked' && s.blockId === day.slots[0].blockId) ? day.slots[0].blockId : null
+    const dshort = s => new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
     const ctitle = (t, extra = '') => `<div class="ctitle">${t}<span class="ctitle-rule"></span>${extra}</div>`
-    const bk = b => `<div class="bk"><div class="when">${esc(when(b.start_at))}</div>
+    const bk = (b, actions) => `<div class="bk"><div class="when">${esc(when(b.start_at))}</div>
       <div class="who"><strong>${esc(b.name)}</strong>${b.bar ? ' · ' + esc(b.bar) : ''} <span class="tag plain ${b.status === 'cancelled' ? 'bad' : 'gold'}">${b.status === 'cancelled' ? 'Annulé' + (b.cancelled_by === 'client' ? ' par le client' : '') : esc(CH[b.channel] || b.channel)}</span><br>
-      <span class="muted">${esc(b.phone || '')}${b.phone ? ' · ' : ''}${esc(b.email)}</span>${b.message ? `<div class="muted">« ${esc(b.message)} »</div>` : ''}</div></div>`
-    v.innerHTML = `<h2>Rendez-vous</h2><p class="lead">Démos réservées sur Bar Ops Venue, en heure de Paris. Pour annuler une démo, fermer des créneaux ou changer les réglages : <button data-go="venue" style="margin-left:6px">Ouvrir Venue</button></p>
+      <span class="muted">${esc(b.phone || '')}${b.phone ? ' · ' : ''}${esc(b.email)}</span>${b.message ? `<div class="muted">« ${esc(b.message)} »</div>` : ''}</div>
+      ${actions ? `<button class="btn btn-sm btn-danger" data-cancel="${esc(b.id)}">Annuler</button>` : ''}</div>`
+    const warn = [d.notify === false && 'Aucune adresse pour vos e-mails (DEMO_NOTIFY_EMAIL ou SUPER_ADMIN_EMAILS)', d.cron === false && 'CRON_SECRET absent : le récap du matin ne partira pas', d.settings && !st.meet_link && 'Pas de lien Meet : la visio n\'est pas proposée aux clients'].filter(Boolean)
+    const blocks = {}; days.forEach(x => x.slots.forEach(s => { if (!s.blockId) return; const k = blocks[s.blockId] = blocks[s.blockId] || { id: s.blockId, from: x.date, to: x.date, n: 0 }; k.to = x.date; k.n++ }))
+    const big = Object.values(blocks).filter(k => k.n > 1)
+    v.innerHTML = `<h2>Rendez-vous</h2><p class="lead">Démos réservées sur Bar Ops Venue, en heure de Paris. Les changements faits ici s'appliquent directement à Venue.</p>
+      ${warn.length ? `<div class="card" style="border-color:var(--red-bg)">${warn.map(w => `<div class="row"><span class="dot bad"></span>${esc(w)}</div>`).join('')}</div>` : ''}
       <div class="card">${ctitle('Rendez-vous à venir', `<span class="cnt">${up.length}</span>`)}
-        ${up.length ? up.map(bk).join('') : '<div class="empty">Aucune démo prévue</div>'}</div>
-      ${days.length ? `<div class="card">${ctitle('Créneaux', '<span class="cnt">lecture seule</span>')}
+        ${up.length ? up.map(b => bk(b, true)).join('') : '<div class="empty">Aucune démo prévue</div>'}
+        <div class="hint">Page publique : bar-ops-venue.vercel.app/demo.html · Récap par e-mail chaque matin vers 7 h s'il y a des démos dans la journée.</div></div>
+      ${days.length ? `<div class="card">${ctitle('Créneaux', '<span class="cnt">cliquez un créneau pour le fermer ou le rouvrir</span>')}
         <div class="days">${days.map(x => { const dd = new Date(x.date + 'T12:00:00Z'), free = x.slots.filter(s => s.state === 'free').length, nb = x.slots.filter(s => s.state === 'booked').length
           return `<button class="day${x.date === demoDay ? ' on' : ''}${x.open && free + nb ? '' : ' shut'}" data-day="${x.date}">${WD[x.weekday]}<b>${dd.getUTCDate()}</b><small>${!x.open || (!free && !nb && x.slots.some(s => s.state === 'blocked')) ? 'fermé' : nb ? nb + ' rdv' : free ? free + ' libre' + (free > 1 ? 's' : '') : 'complet'}</small></button>` }).join('')}</div>
-        <div class="slots">${day.slots.map(s => `<div class="slot ${s.state}">${s.time}<small>${{ free: 'libre', blocked: 'fermé', booked: 'réservé', past: 'passé', closed: 'jour fermé' }[s.state]}</small></div>`).join('') || '<div class="empty">Aucun créneau ce jour-là</div>'}</div></div>` : ''}
-      ${past.length ? `<div class="card">${ctitle('Passés et annulés', '<span class="cnt">60 derniers jours</span>')}${past.map(bk).join('')}</div>` : ''}`
-    v.querySelectorAll('[data-day]').forEach(x => x.onclick = () => { demoDay = x.dataset.day; load('demos') })
+        <div class="slots">${day.slots.map(s => `<button class="slot ${s.state}" data-slot="${esc(s.start)}" data-block="${esc(s.blockId || '')}" ${['booked', 'past', 'closed'].includes(s.state) ? 'disabled' : ''}>${s.time}<small>${{ free: 'libre', blocked: 'fermé', booked: 'réservé', past: 'passé', closed: 'jour fermé' }[s.state]}</small></button>`).join('') || '<div class="empty">Aucun créneau ce jour-là</div>'}</div>
+        <div class="bar" style="margin:16px 0 0">
+          ${dayBlock ? '<button class="btn" id="dayOpen">Rouvrir la journée</button>' : '<button class="btn btn-danger" id="dayShut">Fermer la journée</button>'}
+          <span class="muted" style="font-size:11px;margin-left:8px">Fermer une période :</span>
+          <input type="date" id="pFrom" min="${days[0]?.date || ''}"><input type="date" id="pTo" min="${days[0]?.date || ''}">
+          <input id="pNote" placeholder="Motif (facultatif)" maxlength="120" style="width:160px">
+          <button class="btn" id="pShut">Fermer</button>
+        </div>
+        ${big.length ? `<div class="hint">Fermetures en cours : ${big.map(k => `${dshort(k.from)}${k.to !== k.from ? ' → ' + dshort(k.to) : ''} <a href="#" data-unblock="${esc(k.id)}" style="color:var(--gold)">rouvrir</a>`).join(' · ')}</div>` : ''}
+      </div>` : ''}
+      ${d.settings ? `<div class="card">${ctitle('Réglages')}
+        <div class="wd">${[1, 2, 3, 4, 5, 6, 0].map(n => `<label><input type="checkbox" class="owd" value="${n}" ${st.open_days.includes(n) ? 'checked' : ''}>${WD[n]}</label>`).join('')}</div>
+        <div class="fgrid">
+          <label>Début<input type="time" id="sStart" value="${esc(st.start_time)}" step="900"></label>
+          <label>Fin<input type="time" id="sEnd" value="${esc(st.end_time)}" step="900"></label>
+          <label>Durée d'une démo<select id="sDur">${[15, 20, 30, 45, 60].map(n => `<option value="${n}" ${n === st.slot_minutes ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
+          <label>Délai minimum<select id="sNotice">${[[0, 'Aucun'], [1, '1 h'], [2, '2 h'], [3, '3 h'], [6, '6 h'], [12, '12 h'], [24, '24 h'], [48, '48 h']].map(([n, l]) => `<option value="${n}" ${n === st.min_notice_hours ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label>Réservable sur<select id="sHor">${[7, 14, 30, 60, 90].map(n => `<option value="${n}" ${n === st.horizon_days ? 'selected' : ''}>${n} jours</option>`).join('')}</select></label>
+        </div>
+        <label class="flab">Lien Google Meet fixe<input id="sMeet" value="${esc(st.meet_link || '')}" placeholder="https://meet.google.com/abc-defg-hij"></label>
+        <div class="bar" style="margin:14px 0 0"><button class="btn btn-gold" id="sSave">Enregistrer</button></div>
+        <div class="hint">Changer les horaires ne touche pas aux rendez-vous déjà pris.</div></div>` : ''}
+      ${past.length ? `<div class="card">${ctitle('Passés et annulés', '<span class="cnt">60 derniers jours</span>')}${past.map(b => bk(b, false)).join('')}</div>` : ''}`
+
+    const $v = sel => v.querySelector(sel), all$ = sel => v.querySelectorAll(sel)
+    const post = async (body, okMsg) => { const r = await window.hq.demo(body); if (r?.error) return toast(r.error, true); toast(okMsg); load('demos') }
+    all$('[data-day]').forEach(x => x.onclick = () => { demoDay = x.dataset.day; load('demos') })
+    all$('.slot.free').forEach(x => x.onclick = () => post({ action: 'demo_block', start: x.dataset.slot }, 'Créneau fermé'))
+    all$('.slot.blocked').forEach(x => x.onclick = () => {
+      const n = day.slots.filter(s => s.blockId === x.dataset.block).length
+      if (n > 1 && !confirm('Ce créneau fait partie d\'une fermeture plus large. Rouvrir toute la fermeture ?')) return
+      post({ action: 'demo_unblock', id: x.dataset.block }, 'Créneau rouvert')
+    })
+    all$('[data-unblock]').forEach(x => x.onclick = e => { e.preventDefault(); if (confirm('Rouvrir cette période ?')) post({ action: 'demo_unblock', id: x.dataset.unblock }, 'Période rouverte') })
+    if ($v('#dayShut')) $v('#dayShut').onclick = () => { if (day.slots.some(s => s.state === 'booked') && !confirm('Des démos sont déjà prévues ce jour-là : elles restent maintenues. Fermer le reste de la journée ?')) return; post({ action: 'demo_block', date: demoDay }, 'Journée fermée') }
+    if ($v('#dayOpen')) $v('#dayOpen').onclick = () => post({ action: 'demo_unblock', id: dayBlock }, 'Journée rouverte')
+    if ($v('#pShut')) $v('#pShut').onclick = () => {
+      const f = $v('#pFrom').value, t = $v('#pTo').value || f
+      if (!f) return toast('Choisissez la date de début', true)
+      if (t < f) return toast('La date de fin est avant la date de début', true)
+      post({ action: 'demo_block', date: f, dateTo: t, note: $v('#pNote').value }, 'Période fermée')
+    }
+    all$('[data-cancel]').forEach(x => x.onclick = () => {
+      const b = all.find(y => y.id === x.dataset.cancel)
+      if (!confirm(`Annuler la démo de ${b.name} (${when(b.start_at)}) ?`)) return
+      const notify = confirm('Prévenir le client par e-mail ?')
+      post({ action: 'demo_cancel', id: b.id, notify }, notify ? 'Démo annulée, client prévenu' : 'Démo annulée')
+    })
+    if ($v('#sSave')) $v('#sSave').onclick = () => post({ action: 'demo_settings', open_days: [...all$('.owd:checked')].map(i => Number(i.value)),
+      start_time: $v('#sStart').value, end_time: $v('#sEnd').value, slot_minutes: Number($v('#sDur').value), min_notice_hours: Number($v('#sNotice').value),
+      horizon_days: Number($v('#sHor').value), meet_link: $v('#sMeet').value.trim() }, 'Réglages enregistrés')
   },
 }
 // Alerte Mac : une notification par nouveau problème, puis une quand tout est revenu au vert
