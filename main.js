@@ -87,6 +87,8 @@ ipcMain.handle('hq-data', async (_e, view) => {
 })
 
 app.whenReady().then(() => {
+  // Ouverture automatique à la connexion au Mac (app installée seulement, pas en développement)
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })
   const keys = adminKeys()
   for (const [id, url] of Object.entries(ADMIN_API)) {
     if (!keys[id]) continue
