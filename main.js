@@ -90,11 +90,13 @@ ipcMain.handle('hq-data', async (_e, view) => {
 const shown = new Set()
 const notify = (title, body, go) => {
   if (!Notification.isSupported()) return
-  const n = new Notification({ title: title.slice(0, 200), body: body.slice(0, 500), sound: go === 'demos' ? 'Glass' : 'Sosumi' })
+  const n = new Notification({ title: title.slice(0, 200), body: body.slice(0, 500), silent: true })
   shown.add(n)
   n.on('click', () => { if (win) { win.show(); win.focus(); if (['health', 'demos'].includes(go)) win.webContents.send('go', go) } })
   n.on('close', () => shown.delete(n))
   n.show()
+  // Son joué par l'app elle-même : ne dépend pas du réglage « Émettre un son » de macOS
+  require('child_process').execFile('/usr/bin/afplay', ['/System/Library/Sounds/' + (go === 'demos' ? 'Glass' : 'Sosumi') + '.aiff'], () => {})
 }
 ipcMain.on('hq-notify', (_e, title, body, go) => notify(title, body, go))
 
