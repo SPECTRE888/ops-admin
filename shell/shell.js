@@ -57,10 +57,29 @@ const badge = (id, n, bad) => { const el = $('n-' + id); el.hidden = !n; el.text
 const openBtn = id => `<button data-go="${id}">Ouvrir</button>`
 
 let demoDay = null
+// Données des vues réunies gardées en mémoire (et sur disque) : un onglet s'affiche tout de suite avec les dernières
+// données reçues, puis se met à jour en arrière-plan dès que les plateformes ont répondu
+const cache = {}
+try { Object.assign(cache, JSON.parse(localStorage.getItem('hq_cache') || '{}')) } catch (_) {}
+const pending = {}
+function fetchView(v) {
+  return pending[v] = pending[v] || window.hq.data(v).then(d => {
+    cache[v] = { d, t: Date.now() }
+    try { localStorage.setItem('hq_cache', JSON.stringify(cache)) } catch (_) {}
+    return d
+  }).finally(() => { delete pending[v] })
+}
+let fresh = false // vrai pendant un rendu fait avec des données neuves (pas de nouvelle requête)
+async function data(v) {
+  if (fresh || !cache[v]) return cache[v] && fresh ? cache[v].d : fetchView(v)
+  if (Date.now() - cache[v].t > 30000) fetchView(v).then(() => { fresh = true; render[v](views[v]).catch(() => {}).finally(() => { fresh = false }) })
+  return cache[v].d
+}
+const forceView = v => { if (cache[v]) cache[v].t = 0 }
 const toast = (msg, bad) => { let t = $('toast'); if (!t) { t = Object.assign(document.createElement('div'), { id: 'toast' }); document.body.appendChild(t) } t.textContent = msg; t.className = 'show' + (bad ? ' bad' : ''); clearTimeout(t._h); t._h = setTimeout(() => t.className = '', 2800) }
 const render = {
   async overview(v) {
-    const d = await window.hq.data('overview')
+    const d = await data('overview')
     const ok = PLATFORMS.filter(p => d[p.id] && !d[p.id].error).map(p => d[p.id])
     const sum = k => ok.reduce((s, o) => s + (Number(o[k]) || 0), 0)
     const watch = PLATFORMS.flatMap(p => (d[p.id]?.watch || []).map(w => ({ ...w, p: p.id })))
@@ -85,7 +104,7 @@ const render = {
       <h3>À surveiller (${watch.length})</h3>${watch.length ? `<table><tr><th>Plateforme</th><th>Compte</th><th>Raison</th><th></th></tr>${watch.map(w => `<tr><td><span class="tag gold">${esc(NAME[w.p])}</span></td><td>${esc(w.email)}</td><td>${esc(w.why)}</td><td>${openBtn(w.p)}</td></tr>`).join('')}</table>` : '<p class="muted">Rien à signaler.</p>'}`
   },
   async health(v) {
-    const d = await window.hq.data('health')
+    const d = await data('health')
     // Menu « Simuler un problème de santé » : faux problème sur Helm → Stripe, sans toucher aux alertes vues
     const fake = fakeHealth && d.helm?.checks?.[2]
     if (fake) { fakeHealth = false; Object.assign(d.helm.checks[2], { ok: false, detail: 'FAUX PROBLÈME pour tester, rien de cassé' }) }
@@ -108,7 +127,7 @@ const render = {
     v.innerHTML = `<h2>Santé</h2><p class="lead">${bad ? bad + ' point' + (bad > 1 ? 's' : '') + ' à regarder.' : 'Tout est au vert.'}</p><div class="plats three">${blocks.join('')}</div>`
   },
   async demos(v) {
-    const d = (await window.hq.data('demos')).venue || {}
+    const d = (await data('demos')).venue || {}
     if (d.error) return void (v.innerHTML = `<h2>Rendez-vous</h2><p class="err">${esc(d.error)}</p>`)
     const now = Date.now(), CH = { visio: 'Visio Meet', whatsapp: 'WhatsApp', phone: 'Téléphone' }
     const when = s => new Date(s).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -167,7 +186,7 @@ const render = {
       ${past.length ? `<div class="card">${ctitle('Passés et annulés', '<span class="cnt">60 derniers jours</span>')}${past.map(b => bk(b, false)).join('')}</div>` : ''}`
 
     const $v = sel => v.querySelector(sel), all$ = sel => v.querySelectorAll(sel)
-    const post = async (body, okMsg) => { const r = await window.hq.demo(body); if (r?.error) return toast(r.error, true); toast(okMsg); load('demos') }
+    const post = async (body, okMsg) => { const r = await window.hq.demo(body); if (r?.error) return toast(r.error, true); toast(okMsg); delete cache.demos; load('demos') }
     all$('[data-day]').forEach(x => x.onclick = () => { demoDay = x.dataset.day; load('demos') })
     all$('.slot.free').forEach(x => x.onclick = () => post({ action: 'demo_block', start: x.dataset.slot }, 'Créneau fermé'))
     all$('.slot.blocked').forEach(x => x.onclick = () => {
@@ -264,7 +283,7 @@ function show(id) {
 }
 const wv = () => views[current]?.reload ? views[current] : null
 const act = {
-  reload: () => render[current] ? load(current) : wv()?.reload(),
+  reload: () => render[current] ? (delete cache[current], load(current)) : wv()?.reload(),
   back: () => { const v = wv(); if (v?.canGoBack()) v.goBack() },
   home: () => { const p = PLATFORMS.find(x => x.id === current); if (p && wv()) wv().loadURL(p.url) },
 }
@@ -277,4 +296,4 @@ window.hq.on('reload', act.reload); window.hq.on('home', act.home); window.hq.on
 // (la santé est vérifiée toutes les 5 min, même si son onglet est ouvert, pour les alertes Mac)
 const refreshBadges = () => HQ.forEach(p => p.id !== current && load(p.id))
 show(current); refreshBadges(); setInterval(refreshBadges, 600000)
-setInterval(() => { load('health'); load('demos') }, 300000)
+setInterval(() => { forceView('health'); forceView('demos'); load('health'); load('demos') }, 300000)
