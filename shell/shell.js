@@ -90,12 +90,13 @@ const render = {
       if (h.error) { bad++; return `<div class="plat"><header><b>${esc(p.name)}</b>${openBtn(p.id)}</header><p class="err">${esc(h.error)}</p></div>` }
       const missing = Object.entries(h.env || {}).filter(([, on]) => !on).map(([k]) => k)
       bad += (h.checks || []).filter(c => !c.ok).length + (missing.length ? 1 : 0)
-      return `<div class="plat" style="grid-column:1/-1"><header><b>${esc(p.name)}</b>${openBtn(p.id)}</header>
-        <table><tr><th>Contrôle</th><th>État</th><th>Détail</th></tr>${(h.checks || []).map(c => `<tr><td>${esc(c.name)}</td><td><span class="tag ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'OK' : 'Problème'}</span></td><td>${esc(c.detail)}</td></tr>`).join('')}
-        <tr><td>Variables</td><td><span class="tag ${missing.length ? 'bad' : 'ok'}">${missing.length ? 'Manquantes' : 'OK'}</span></td><td>${missing.length ? esc(missing.join(', ')) : Object.keys(h.env || {}).length + ' présentes'}</td></tr></table></div>`
+      const nko = (h.checks || []).filter(c => !c.ok).length + (missing.length ? 1 : 0)
+      const line = (name, ok, detail) => `<li class="${ok ? 'ok' : 'bad'}"><i></i><div><span>${esc(name)}</span>${detail ? `<small>${esc(detail)}</small>` : ''}</div></li>`
+      return `<div class="plat"><header><b>${esc(p.name)}</b><span class="tag ${nko ? 'bad' : 'ok'}">${nko ? nko + ' problème' + (nko > 1 ? 's' : '') : 'OK'}</span>${openBtn(p.id)}</header>
+        <ul class="checks">${(h.checks || []).map(c => line(c.name, c.ok, c.detail)).join('')}${line('Variables', !missing.length, missing.length ? missing.join(', ') : Object.keys(h.env || {}).length + ' présentes')}</ul></div>`
     })
     badge('health', bad, true)
-    v.innerHTML = `<h2>Santé</h2><p class="lead">${bad ? bad + ' point' + (bad > 1 ? 's' : '') + ' à regarder.' : 'Tout est au vert.'}</p><div class="plats">${blocks.join('')}</div>`
+    v.innerHTML = `<h2>Santé</h2><p class="lead">${bad ? bad + ' point' + (bad > 1 ? 's' : '') + ' à regarder.' : 'Tout est au vert.'}</p><div class="plats three">${blocks.join('')}</div>`
   },
   async demos(v) {
     const d = (await window.hq.data('demos')).venue || {}
