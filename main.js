@@ -88,14 +88,15 @@ ipcMain.handle('hq-data', async (_e, view) => {
 
 // Alertes Mac (santé, démos) envoyées par la page ; clic : fenêtre au premier plan sur le bon onglet
 const shown = new Set()
-ipcMain.on('hq-notify', (_e, title, body, go) => {
+const notify = (title, body, go) => {
   if (!Notification.isSupported()) return
   const n = new Notification({ title: title.slice(0, 200), body: body.slice(0, 500) })
   shown.add(n)
   n.on('click', () => { if (win) { win.show(); win.focus(); if (['health', 'demos'].includes(go)) win.webContents.send('go', go) } })
   n.on('close', () => shown.delete(n))
   n.show()
-})
+}
+ipcMain.on('hq-notify', (_e, title, body, go) => notify(title, body, go))
 
 app.whenReady().then(() => {
   // Ouverture automatique à la connexion au Mac (app installée seulement, pas en développement)
@@ -122,6 +123,8 @@ app.whenReady().then(() => {
       { label: 'Actualiser', accelerator: 'Cmd+R', click: send('reload') },
       { label: 'Revenir au super admin', accelerator: 'Cmd+Shift+H', click: send('home') },
       { label: 'Précédent', accelerator: 'Cmd+[', click: send('back') },
+      { type: 'separator' },
+      { label: 'Envoyer une alerte de test', click: () => notify('⚠️ Alerte de test', 'Rien de cassé : clic pour ouvrir Santé', 'health') },
     ] },
     { role: 'windowMenu' },
   ]))
