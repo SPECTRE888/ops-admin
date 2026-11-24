@@ -1,7 +1,7 @@
 // Ops HQ — coque Mac qui regroupe les super admins des plateformes Ops Suite.
 // Chaque plateforme tourne dans sa propre <webview>, avec une session persistante séparée
 // (partition persist:<id>) : la connexion à Event ne se mélange pas avec Venue ou Helm.
-const { app, BrowserWindow, shell, Menu, session, ipcMain } = require('electron')
+const { app, BrowserWindow, shell, Menu, session, ipcMain, Notification } = require('electron')
 const path = require('path')
 
 // Google refuse la connexion dans un navigateur intégré qui s'annonce comme Electron :
@@ -84,6 +84,17 @@ ipcMain.handle('hq-data', async (_e, view) => {
     } catch (e) { out[id] = { error: e.message } }
   }))
   return out
+})
+
+// Alertes Mac (santé, démos) envoyées par la page ; clic : fenêtre au premier plan sur le bon onglet
+const shown = new Set()
+ipcMain.on('hq-notify', (_e, title, body, go) => {
+  if (!Notification.isSupported()) return
+  const n = new Notification({ title: title.slice(0, 200), body: body.slice(0, 500) })
+  shown.add(n)
+  n.on('click', () => { if (win) { win.show(); win.focus(); if (['health', 'demos'].includes(go)) win.webContents.send('go', go) } })
+  n.on('close', () => shown.delete(n))
+  n.show()
 })
 
 app.whenReady().then(() => {

@@ -123,7 +123,7 @@ function alertHealth(issues) {
   let seen = []
   try { seen = JSON.parse(localStorage.getItem('hq_alerts') || '[]') } catch (_) {}
   const keys = issues.map(i => i[0])
-  const notify = (title, body) => { const n = new Notification(title, { body: body || '' }); n.onclick = () => show('health') }
+  const notify = (title, body) => window.hq.notify(title, body, 'health')
   issues.filter(i => !seen.includes(i[0])).forEach(i => notify('⚠️ ' + i[0], i[1]))
   if (seen.length && !keys.length) notify('✅ Ops HQ : tout est revenu au vert')
   try { localStorage.setItem('hq_alerts', JSON.stringify(keys)) } catch (_) {}
@@ -135,7 +135,7 @@ function alertDemos(all, up, when, CH) {
   upcoming = up.map(b => ({ ...b, label: when(b.start_at), ch: CH[b.channel] || b.channel }))
   let seen = null
   try { seen = JSON.parse(localStorage.getItem('hq_demos')) } catch (_) {}
-  const notify = (title, body) => { const n = new Notification(title, { body }); n.onclick = () => show('demos') }
+  const notify = (title, body) => window.hq.notify(title, body, 'demos')
   if (seen) {
     upcoming.filter(b => !seen.includes(bid(b))).forEach(b => notify('📅 Nouvelle démo : ' + b.name, `${b.label} · ${b.ch}${b.bar ? ' · ' + b.bar : ''}`))
     all.filter(b => b.status === 'cancelled' && seen.includes(bid(b))).forEach(b => notify('❌ Démo annulée : ' + b.name, when(b.start_at)))
@@ -149,8 +149,7 @@ setInterval(() => {
     const t = Date.parse(b.start_at) - now
     if (t > 0 && t <= 15 * 60000 && !reminded.has(bid(b))) {
       reminded.add(bid(b))
-      const n = new Notification('⏰ Démo dans ' + Math.ceil(t / 60000) + ' min : ' + b.name, { body: `${b.ch}${b.phone ? ' · ' + b.phone : ''}${b.bar ? ' · ' + b.bar : ''}` })
-      n.onclick = () => show('demos')
+      window.hq.notify('⏰ Démo dans ' + Math.ceil(t / 60000) + ' min : ' + b.name, `${b.ch}${b.phone ? ' · ' + b.phone : ''}${b.bar ? ' · ' + b.bar : ''}`, 'demos')
     }
   })
 }, 60000)
