@@ -85,17 +85,21 @@ const render = {
   async health(v) {
     const d = await window.hq.data('health')
     let bad = 0
+    const issues = []
     const blocks = PLATFORMS.map(p => {
       const h = d[p.id] || {}
-      if (h.error) { bad++; return `<div class="plat"><header><b>${esc(p.name)}</b>${openBtn(p.id)}</header><p class="err">${esc(h.error)}</p></div>` }
+      if (h.error) { bad++; issues.push([p.name + ' : injoignable', h.error]); return `<div class="plat"><header><b>${esc(p.name)}</b>${openBtn(p.id)}</header><p class="err">${esc(h.error)}</p></div>` }
       const missing = Object.entries(h.env || {}).filter(([, on]) => !on).map(([k]) => k)
       bad += (h.checks || []).filter(c => !c.ok).length + (missing.length ? 1 : 0)
+      ;(h.checks || []).filter(c => !c.ok).forEach(c => issues.push([p.name + ' : ' + c.name, c.detail]))
+      if (missing.length) issues.push([p.name + ' : variables manquantes', missing.join(', ')])
       const nko = (h.checks || []).filter(c => !c.ok).length + (missing.length ? 1 : 0)
       const line = (name, ok, detail) => `<li class="${ok ? 'ok' : 'bad'}"><i></i><div><span>${esc(name)}</span>${detail ? `<small>${esc(detail)}</small>` : ''}</div></li>`
       return `<div class="plat"><header><b>${esc(p.name)}</b><span class="tag ${nko ? 'bad' : 'ok'}">${nko ? nko + ' problème' + (nko > 1 ? 's' : '') : 'OK'}</span>${openBtn(p.id)}</header>
         <ul class="checks">${(h.checks || []).map(c => line(c.name, c.ok, c.detail)).join('')}${line('Variables', !missing.length, missing.length ? missing.join(', ') : Object.keys(h.env || {}).length + ' présentes')}</ul></div>`
     })
     badge('health', bad, true)
+    alertHealth(issues)
     v.innerHTML = `<h2>Santé</h2><p class="lead">${bad ? bad + ' point' + (bad > 1 ? 's' : '') + ' à regarder.' : 'Tout est au vert.'}</p><div class="plats three">${blocks.join('')}</div>`
   },
   async demos(v) {
@@ -112,6 +116,16 @@ const render = {
       <h3>À venir (${up.length})</h3>${up.length ? `<table><tr><th>Quand</th><th>Qui</th><th>Canal</th></tr>${up.map(row).join('')}</table>` : '<p class="muted">Aucun rendez-vous à venir.</p>'}
       <h3>Passés et annulés (60 derniers jours)</h3>${past.length ? `<table><tr><th>Quand</th><th>Qui</th><th>Statut</th></tr>${past.map(row).join('')}</table>` : '<p class="muted">Aucun.</p>'}`
   },
+}
+// Alerte Mac : une notification par nouveau problème, puis une quand tout est revenu au vert
+function alertHealth(issues) {
+  let seen = []
+  try { seen = JSON.parse(localStorage.getItem('hq_alerts') || '[]') } catch (_) {}
+  const keys = issues.map(i => i[0])
+  const notify = (title, body) => { const n = new Notification(title, { body: body || '' }); n.onclick = () => show('health') }
+  issues.filter(i => !seen.includes(i[0])).forEach(i => notify('⚠️ ' + i[0], i[1]))
+  if (seen.length && !keys.length) notify('✅ Ops HQ : tout est revenu au vert')
+  try { localStorage.setItem('hq_alerts', JSON.stringify(keys)) } catch (_) {}
 }
 async function load(id) {
   const v = views[id]
@@ -147,5 +161,7 @@ window.hq.on('go', show)
 window.hq.on('helm-auth', hash => { show('helm'); views.helm.loadURL(PLATFORMS.find(p => p.id === 'helm').url + '?hq=1' + hash) })
 window.hq.on('reload', act.reload); window.hq.on('home', act.home); window.hq.on('back', act.back)
 // Pastilles des vues réunies chargées au démarrage, puis toutes les 10 min
+// (la santé est vérifiée toutes les 5 min, même si son onglet est ouvert, pour les alertes Mac)
 const refreshBadges = () => HQ.forEach(p => p.id !== current && load(p.id))
 show(current); refreshBadges(); setInterval(refreshBadges, 600000)
+setInterval(() => load('health'), 300000)
