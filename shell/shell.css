@@ -64,3 +64,4 @@ tr:last-child td{border-bottom:none}
 .checks i{flex-shrink:0;width:7px;height:7px;border-radius:50%;margin-top:5px;background:var(--green)}
 .checks li.bad i{background:var(--red)}.checks li.bad span{color:var(--red)}
 .checks small{display:block;color:var(--text3);font-size:11.5px;word-break:break-word}
+.checks li div{flex:1;min-width:0}.checks em{font-style:normal;align-self:flex-start}

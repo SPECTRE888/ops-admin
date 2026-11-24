@@ -94,7 +94,7 @@ const render = {
       ;(h.checks || []).filter(c => !c.ok).forEach(c => issues.push([p.name + ' : ' + c.name, c.detail]))
       if (missing.length) issues.push([p.name + ' : variables manquantes', missing.join(', ')])
       const nko = (h.checks || []).filter(c => !c.ok).length + (missing.length ? 1 : 0)
-      const line = (name, ok, detail) => `<li class="${ok ? 'ok' : 'bad'}"><i></i><div><span>${esc(name)}</span>${detail ? `<small>${esc(detail)}</small>` : ''}</div></li>`
+      const line = (name, ok, detail) => `<li class="${ok ? 'ok' : 'bad'}"><i></i><div><span>${esc(name)}</span>${detail ? `<small>${esc(detail)}</small>` : ''}</div><em class="tag ${ok ? 'ok' : 'bad'}">${ok ? 'OK' : 'Problème'}</em></li>`
       return `<div class="plat"><header><b>${esc(p.name)}</b><span class="tag ${nko ? 'bad' : 'ok'}">${nko ? nko + ' problème' + (nko > 1 ? 's' : '') : 'OK'}</span>${openBtn(p.id)}</header>
         <ul class="checks">${(h.checks || []).map(c => line(c.name, c.ok, c.detail)).join('')}${line('Variables', !missing.length, missing.length ? missing.join(', ') : Object.keys(h.env || {}).length + ' présentes')}</ul></div>`
     })
