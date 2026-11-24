@@ -111,6 +111,7 @@ const render = {
     const up = all.filter(b => b.status === 'booked' && Date.parse(b.end_at) > now)
     const past = all.filter(b => !up.includes(b)).reverse()
     badge('demos', up.length)
+    alertDemos(all, up, when, CH)
     const row = b => `<tr><td>${esc(when(b.start_at))}</td><td><b style="font-weight:500">${esc(b.name)}</b>${b.bar ? ' · ' + esc(b.bar) : ''}<br><span class="muted">${esc(b.email)}${b.phone ? ' · ' + esc(b.phone) : ''}</span>${b.message ? `<br><span class="muted">${esc(b.message)}</span>` : ''}</td><td><span class="tag ${b.status === 'cancelled' ? 'bad' : 'gold'}">${b.status === 'cancelled' ? 'Annulé' : esc(CH[b.channel] || b.channel)}</span></td></tr>`
     v.innerHTML = `<h2>Rendez-vous</h2><p class="lead">Démos réservées sur Bar Ops Venue (heure de Paris). Réglages et fermetures de créneaux : onglet Démos de Venue. <button data-go="venue" style="margin-left:8px" class="tab">Ouvrir Venue</button></p>
       <h3>À venir (${up.length})</h3>${up.length ? `<table><tr><th>Quand</th><th>Qui</th><th>Canal</th></tr>${up.map(row).join('')}</table>` : '<p class="muted">Aucun rendez-vous à venir.</p>'}
@@ -127,6 +128,32 @@ function alertHealth(issues) {
   if (seen.length && !keys.length) notify('✅ Ops HQ : tout est revenu au vert')
   try { localStorage.setItem('hq_alerts', JSON.stringify(keys)) } catch (_) {}
 }
+// Alertes Mac des démos : nouvelle réservation, annulation, et rappel 15 min avant
+let upcoming = []
+const bid = b => b.id ?? (b.start_at + '|' + b.email)
+function alertDemos(all, up, when, CH) {
+  upcoming = up.map(b => ({ ...b, label: when(b.start_at), ch: CH[b.channel] || b.channel }))
+  let seen = null
+  try { seen = JSON.parse(localStorage.getItem('hq_demos')) } catch (_) {}
+  const notify = (title, body) => { const n = new Notification(title, { body }); n.onclick = () => show('demos') }
+  if (seen) {
+    upcoming.filter(b => !seen.includes(bid(b))).forEach(b => notify('📅 Nouvelle démo : ' + b.name, `${b.label} · ${b.ch}${b.bar ? ' · ' + b.bar : ''}`))
+    all.filter(b => b.status === 'cancelled' && seen.includes(bid(b))).forEach(b => notify('❌ Démo annulée : ' + b.name, when(b.start_at)))
+  }
+  try { localStorage.setItem('hq_demos', JSON.stringify(upcoming.map(bid))) } catch (_) {}
+}
+const reminded = new Set()
+setInterval(() => {
+  const now = Date.now()
+  upcoming.forEach(b => {
+    const t = Date.parse(b.start_at) - now
+    if (t > 0 && t <= 15 * 60000 && !reminded.has(bid(b))) {
+      reminded.add(bid(b))
+      const n = new Notification('⏰ Démo dans ' + Math.ceil(t / 60000) + ' min : ' + b.name, { body: `${b.ch}${b.phone ? ' · ' + b.phone : ''}${b.bar ? ' · ' + b.bar : ''}` })
+      n.onclick = () => show('demos')
+    }
+  })
+}, 60000)
 async function load(id) {
   const v = views[id]
   if (!v.innerHTML) v.innerHTML = '<p class="loading">Chargement…</p>'
@@ -164,4 +191,4 @@ window.hq.on('reload', act.reload); window.hq.on('home', act.home); window.hq.on
 // (la santé est vérifiée toutes les 5 min, même si son onglet est ouvert, pour les alertes Mac)
 const refreshBadges = () => HQ.forEach(p => p.id !== current && load(p.id))
 show(current); refreshBadges(); setInterval(refreshBadges, 600000)
-setInterval(() => load('health'), 300000)
+setInterval(() => { load('health'); load('demos') }, 300000)
